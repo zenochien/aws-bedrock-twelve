@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Analysis với AWS Bedrock</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: #4ECDC4;
+            background: #f8f9fa;
+        }
+
+        .upload-area.dragover {
+            border-color: #FF6B6B;
+            background: #fff5f5;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.3s ease;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .prompt-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 16px;
+            min-height: 100px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .prompt-input:focus {
+            outline: none;
+            border-color: #4ECDC4;
+            box-shadow: 0 0 10px rgba(78, 205, 196, 0.3);
+        }
+
+        .analyze-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 18px;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .analyze-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 5px solid #4ECDC4;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4ECDC4;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .file-info {
+            background: #e8f5e8;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        #resultContent {
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎥 Video Analysis</h1>
+            <p>Phân tích video bằng AI với AWS Bedrock</p>
+        </div>
+
+        <div class="content">
+            <div class="upload-area" id="uploadArea">
+                <div>
+                    <h3>📁 Chọn video để phân tích</h3>
+                    <p>Kéo thả file hoặc click để chọn</p>
+                    <button class="upload-btn" onclick="document.getElementById('videoFile').click()">
+                        Chọn Video
+                    </button>
+                    <input type="file" id="videoFile" accept="video/*">
+                </div>
+            </div>
+
+            <div class="file-info" id="fileInfo"></div>
+
+            <textarea class="prompt-input" id="promptInput"
+                placeholder="Nhập câu hỏi về video (ví dụ: 'Mô tả nội dung video này', 'Tóm tắt các sự kiện chính', 'Phân tích cảm xúc trong video')...">tell me about the video</textarea>
+
+            <button class="analyze-btn" id="analyzeBtn" onclick="analyzeVideo()">
+                🔍 Xử lý Video
+            </button>
+
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        // Xử lý drag & drop
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('videoFile');
+        const fileInfo = document.getElementById('fileInfo');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            selectedFile = file;
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = `
+                <strong>File đã chọn:</strong> ${file.name}<br>
+                <strong>Kích thước:</strong> ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
+                <strong>Loại:</strong> ${file.type}
+            `;
+        }
+
+        async function analyzeVideo() {
+            if (!selectedFile) {
+                alert('Vui lòng chọn file video trước!');
+                return;
+            }
+
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const resultDiv = document.getElementById('result');
+            const prompt = document.getElementById('promptInput').value;
+
+            // Hiển thị loading
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = '⏳ Đang xử lý...';
+
+            resultDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Đang upload và xử lý video...</p>
+                </div>
+            `;
+
+            try {
+                const formData = new FormData();
+                formData.append('video', selectedFile);
+                formData.append('prompt', prompt);
+
+                const response = await fetch('/analyze-video', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    let message = data.result.message || JSON.stringify(data.result, null, 2);
+                    message = message.replace(/\n\n/g, '\n\n');
+
+                    resultDiv.innerHTML = `
+                        <div class="result">
+                            <h3>🎯 Kết quả:</h3>
+                            <div id="resultContent">${message}</div>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result" style="border-left-color: #FF6B6B;">
+                            <h3>❌ Lỗi:</h3>
+                            <p>${data.error}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result" style="border-left-color: #FF6B6B;">
+                        <h3>❌ Lỗi kết nối:</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = '🔍 Phân Tích Video';
+            }
+        }
+    </script>
+</body>
+
+</html> `;
+}
+} catch (error) {
+resultDiv.innerHTML = `
+<div class="result" style="border-left-color: #FF6B6B;">
+    <h3>❌ Lỗi kết nối:</h3>
+    <p>${error.message}</p>
+</div>
+`;
+} finally {
+analyzeBtn.disabled = false;
+analyzeBtn.textContent = '🔍 Phân Tích Video';
+}
+}
+</script>
+</body>
+
+</html>
