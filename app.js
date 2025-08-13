@@ -113,7 +113,7 @@ app.post('/analyze-video', upload.single('video'), async (req, res) => {
         }
 
         const videoPath = req.file.path;
-        const prompt = req.body.prompt || 'Tell me about the video';
+        const prompt = req.body.prompt || '';
 
         // Đọc file video -> base64
         const videoBuffer = fs.readFileSync(videoPath);
@@ -139,7 +139,17 @@ app.post('/analyze-video', upload.single('video'), async (req, res) => {
 
         // Format xuống dòng
         let formattedMessage = responseBody.message || '';
-        formattedMessage = formattedMessage.replace(/\n\n/g, '\n').replace(/\n/g, '<br>');
+
+        // Xóa ký tự escape \" thành "
+        formattedMessage = formattedMessage.replace(/\\"/g, '"');
+
+        // Nếu còn &quot; thì chuyển về "
+        formattedMessage = formattedMessage.replace(/&quot;/g, '"');
+
+        // Format xuống dòng HTML
+        formattedMessage = formattedMessage
+            .replace(/\n\n/g, '\n')
+            .replace(/\n/g, '<br>');
 
         // Xóa file tạm
         fs.unlinkSync(videoPath);
