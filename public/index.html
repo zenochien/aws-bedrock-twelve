@@ -159,6 +159,19 @@
             display: none;
         }
 
+        .video-preview {
+            margin: 20px 0;
+            text-align: center;
+            display: none;
+        }
+
+        .video-preview video {
+            max-width: 100%;
+            height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
         #resultContent {
             white-space: pre-wrap;
             word-break: break-word;
@@ -176,6 +189,11 @@
             <p>Phân tích video bằng AI với AWS Bedrock</p>
         </div>
 
+        <div class="nav" style="background: #f8f9fa; padding: 15px 30px; border-bottom: 1px solid #dee2e6;">
+            <a href="/" style="color: #495057; text-decoration: none; margin-right: 20px; padding: 8px 16px; border-radius: 5px; background: #4ECDC4; color: white;">📤 Upload Video</a>
+            <a href="/s3" style="color: #495057; text-decoration: none; margin-right: 20px; padding: 8px 16px; border-radius: 5px; transition: background 0.3s;" onmouseover="this.style.background='#4ECDC4'; this.style.color='white'" onmouseout="this.style.background=''; this.style.color='#495057'">📁 S3 Videos</a>
+        </div>
+
         <div class="content">
             <div class="upload-area" id="uploadArea">
                 <div>
@@ -190,8 +208,12 @@
 
             <div class="file-info" id="fileInfo"></div>
 
+            <div class="video-preview" id="videoPreview">
+                <video id="previewVideo" controls></video>
+            </div>
+
             <textarea class="prompt-input" id="promptInput"
-                placeholder="Nhập câu hỏi về video (ví dụ: 'Mô tả nội dung video này', 'Tóm tắt các sự kiện chính', 'Phân tích cảm xúc trong video')...">tell me about the video</textarea>
+                placeholder="Nhập câu hỏi về video (ví dụ: 'Mô tả nội dung video này', 'Tóm tắt các sự kiện chính', 'Phân tích cảm xúc trong video')..."></textarea>
 
             <button class="analyze-btn" id="analyzeBtn" onclick="analyzeVideo()">
                 🔍 Xử lý Video
@@ -241,6 +263,14 @@
                 <strong>Kích thước:</strong> ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
                 <strong>Loại:</strong> ${file.type}
             `;
+            
+            // Hiển thị video preview
+            const videoPreview = document.getElementById('videoPreview');
+            const previewVideo = document.getElementById('previewVideo');
+            const videoURL = URL.createObjectURL(file);
+            
+            previewVideo.src = videoURL;
+            videoPreview.style.display = 'block';
         }
 
         async function analyzeVideo() {
